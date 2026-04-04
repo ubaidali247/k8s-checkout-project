@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
+        app: checkout
+    spec:
+      containers:
+      - name: checkout
+        image: docker.io/library/checkout:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3002
+        env:
+        - name: PRICING_URL
+          value: "http://pricing-svc:3000/price"
+        - name: INVENTORY_URL
+          value: "http://inventory-svc:3001/stock"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout-svc
+spec:
+  selector:
+    app: checkout
+  ports:
+  - port: 3002
+    targetPort: 3002

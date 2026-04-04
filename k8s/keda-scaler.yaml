@@ -1,0 +1,17 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: inventory-scaler
+spec:
+  scaleTargetRef:
+    name: inventory
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  cooldownPeriod: 30
+  triggers:
+  - type: cron
+    metadata:
+      timezone: Europe/Dublin
+      start: "0 8 * * *"
+      end: "0 22 * * *"
+      desiredReplicas: "1"
