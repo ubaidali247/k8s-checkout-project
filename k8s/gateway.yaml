@@ -23,7 +23,7 @@ spec:
           value: "http://checkout-svc:3002/checkout"
         readinessProbe:
           httpGet:
-            path: /api/ping
+            path: /health
             port: 3003
           initialDelaySeconds: 5
           periodSeconds: 5

@@ -52,7 +52,6 @@ app.get('/', (req, res) => {
     .arrow { color: #999; font-size: 1.2rem; padding: 0 8px; }
     .deps { display: flex; flex-direction: column; gap: 8px; }
     label { font-size: 0.85rem; color: #666; margin-bottom: 4px; display: block; }
-    .req-id { font-size: 0.75rem; color: #999; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -61,60 +60,35 @@ app.get('/', (req, res) => {
     <span>Kubernetes / K3s</span>
     <span>Microservices</span>
   </header>
-
   <div class="container">
     <div class="services">
-      <div class="svc" id="svc-gateway">
-        <div class="dot" id="dot-gateway"></div>
-        <div class="svc-name">Gateway</div>
-        <div class="svc-status" id="status-gateway">Checking...</div>
-      </div>
-      <div class="svc" id="svc-checkout">
-        <div class="dot" id="dot-checkout"></div>
-        <div class="svc-name">Checkout</div>
-        <div class="svc-status" id="status-checkout">Checking...</div>
-      </div>
-      <div class="svc" id="svc-pricing">
-        <div class="dot" id="dot-pricing"></div>
-        <div class="svc-name">Pricing</div>
-        <div class="svc-status" id="status-pricing">Checking...</div>
-      </div>
-      <div class="svc" id="svc-inventory">
-        <div class="dot" id="dot-inventory"></div>
-        <div class="svc-name">Inventory</div>
-        <div class="svc-status" id="status-inventory">Checking...</div>
-      </div>
+      <div class="svc"><div class="dot" id="dot-gateway"></div><div class="svc-name">Gateway</div><div class="svc-status" id="status-gateway">Checking...</div></div>
+      <div class="svc"><div class="dot" id="dot-checkout"></div><div class="svc-name">Checkout</div><div class="svc-status" id="status-checkout">Checking...</div></div>
+      <div class="svc"><div class="dot" id="dot-pricing"></div><div class="svc-name">Pricing</div><div class="svc-status" id="status-pricing">Checking...</div></div>
+      <div class="svc"><div class="dot" id="dot-inventory"></div><div class="svc-name">Inventory</div><div class="svc-status" id="status-inventory">Checking...</div></div>
     </div>
-
     <div class="card">
       <h2>Place Order</h2>
       <label>Product ID</label>
       <input type="number" id="productId" value="1" min="1">
-      <label>Quantity</label>
+      <label>Quantity (>10 triggers out-of-stock)</label>
       <input type="number" id="quantity" value="1" min="1">
       <label>Request ID</label>
       <input type="text" id="requestId" value="req-001">
       <button onclick="placeOrder()" id="btn">Place Order</button>
       <div class="result" id="result"></div>
-      <div class="req-id" id="req-display"></div>
     </div>
-
     <div class="card">
       <h2>Request Log</h2>
       <div class="log-box" id="log"></div>
     </div>
-
     <div class="card arch">
       <h2>System Architecture</h2>
       <div class="arch-diagram">
-        <div class="node">Browser</div>
-        <div class="arrow">→</div>
-        <div class="node">Ingress<br><small>Traefik</small></div>
-        <div class="arrow">→</div>
-        <div class="node">Gateway<br><small>:3003</small></div>
-        <div class="arrow">→</div>
-        <div class="node">Checkout<br><small>:3002</small></div>
-        <div class="arrow">→</div>
+        <div class="node">Browser</div><div class="arrow">→</div>
+        <div class="node">Ingress<br><small>Traefik</small></div><div class="arrow">→</div>
+        <div class="node">Gateway<br><small>:3003</small></div><div class="arrow">→</div>
+        <div class="node">Checkout<br><small>:3002</small></div><div class="arrow">→</div>
         <div class="deps">
           <div class="node dep">Pricing :3000</div>
           <div class="node dep">Inventory :3001</div>
@@ -123,48 +97,38 @@ app.get('/', (req, res) => {
       </div>
     </div>
   </div>
-
   <script>
     async function checkHealth(service, url) {
       try {
         const r = await fetch(url);
-        if (r.ok) {
-          document.getElementById('dot-' + service).className = 'dot green';
-          document.getElementById('status-' + service).textContent = 'Healthy';
-        } else {
-          throw new Error('not ok');
-        }
+        document.getElementById('dot-' + service).className = r.ok ? 'dot green' : 'dot red';
+        document.getElementById('status-' + service).textContent = r.ok ? 'Healthy' : 'Unhealthy';
       } catch {
         document.getElementById('dot-' + service).className = 'dot red';
         document.getElementById('status-' + service).textContent = 'Unavailable';
       }
     }
-
     function checkAllHealth() {
       checkHealth('gateway', '/health');
       checkHealth('checkout', '/api/health/checkout');
       checkHealth('pricing', '/api/health/pricing');
       checkHealth('inventory', '/api/health/inventory');
     }
-
     function addLog(requestId, status, message) {
       const log = document.getElementById('log');
       const time = new Date().toLocaleTimeString();
       const cls = status === 'OK' ? 'ok' : 'err';
       log.innerHTML = '<div class="entry"><span class="time">' + time + '</span> <span class="' + cls + '">[' + status + ']</span> ' + requestId + ' — ' + message + '</div>' + log.innerHTML;
     }
-
     async function placeOrder() {
       const productId = document.getElementById('productId').value;
       const quantity = document.getElementById('quantity').value;
       const requestId = document.getElementById('requestId').value || ('req-' + Date.now());
       const btn = document.getElementById('btn');
       const result = document.getElementById('result');
-
       btn.disabled = true;
       btn.textContent = 'Processing...';
       result.style.display = 'none';
-
       try {
         const start = Date.now();
         const r = await fetch('/api/checkout', {
@@ -174,15 +138,13 @@ app.get('/', (req, res) => {
         });
         const elapsed = Date.now() - start;
         const data = await r.json();
-
         if (r.ok) {
           result.className = 'result success';
           result.innerHTML = '<strong>Order Successful!</strong><br><pre>' + JSON.stringify(data, null, 2) + '</pre><br><small>Latency: ' + elapsed + 'ms | Request-Id: ' + requestId + '</small>';
           addLog(requestId, 'OK', 'Order placed in ' + elapsed + 'ms');
-          document.getElementById('requestId').value = 'req-' + (parseInt(requestId.split('-')[1] || 0) + 1);
         } else {
           result.className = 'result error';
-          result.innerHTML = '<strong>Order Failed</strong><br><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+          result.innerHTML = '<strong>' + (data.error || 'Failed') + '</strong><br><pre>' + JSON.stringify(data, null, 2) + '</pre><br><small>Latency: ' + elapsed + 'ms</small>';
           addLog(requestId, 'ERR', data.error || 'Unknown error');
         }
         result.style.display = 'block';
@@ -192,11 +154,9 @@ app.get('/', (req, res) => {
         result.style.display = 'block';
         addLog(requestId, 'ERR', err.message);
       }
-
       btn.disabled = false;
       btn.textContent = 'Place Order';
     }
-
     checkAllHealth();
     setInterval(checkAllHealth, 10000);
   </script>
@@ -205,30 +165,18 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health/checkout', async (req, res) => {
-  try {
-    await axios.get('http://checkout-svc:3002/health', { timeout: 2000 });
-    res.send('OK');
-  } catch {
-    res.status(503).send('UNAVAILABLE');
-  }
+  try { await axios.get('http://checkout-svc:3002/health', { timeout: 2000 }); res.send('OK'); }
+  catch { res.status(503).send('UNAVAILABLE'); }
 });
 
 app.get('/api/health/pricing', async (req, res) => {
-  try {
-    await axios.get('http://pricing-svc:3000/health', { timeout: 2000 });
-    res.send('OK');
-  } catch {
-    res.status(503).send('UNAVAILABLE');
-  }
+  try { await axios.get('http://pricing-svc:3000/health', { timeout: 2000 }); res.send('OK'); }
+  catch { res.status(503).send('UNAVAILABLE'); }
 });
 
 app.get('/api/health/inventory', async (req, res) => {
-  try {
-    await axios.get('http://inventory-svc:3001/health', { timeout: 2000 });
-    res.send('OK');
-  } catch {
-    res.status(503).send('UNAVAILABLE');
-  }
+  try { await axios.get('http://inventory-svc:3001/health', { timeout: 2000 }); res.send('OK'); }
+  catch { res.status(503).send('UNAVAILABLE'); }
 });
 
 app.post('/api/checkout', async (req, res) => {
@@ -242,6 +190,9 @@ app.post('/api/checkout', async (req, res) => {
     res.json(response.data);
   } catch (err) {
     console.error(`[Gateway] Error: ${err.message}`);
+    if (err.response) {
+      return res.status(err.response.status).json(err.response.data);
+    }
     res.status(500).json({ error: 'Gateway failed to process checkout', details: err.message });
   }
 });

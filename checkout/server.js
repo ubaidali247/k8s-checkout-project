@@ -24,6 +24,7 @@ async function initDb() {
         price INT,
         stock INT,
         request_id TEXT,
+        status TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
@@ -39,16 +40,37 @@ app.get('/health', (req, res) => res.send('OK'));
 
 app.post('/checkout', async (req, res) => {
   const requestId = req.headers['x-request-id'] || 'N/A';
-  console.log(`[Checkout] Request ID: ${requestId}`);
+  const { quantity } = req.body;
+  console.log(`[Checkout] Request ID: ${requestId}, Quantity: ${quantity}`);
+
   try {
     const pricing = await axios.get(PRICING_URL, {
       headers: { 'X-Request-Id': requestId },
       timeout: 2000
     });
-    const inventory = await axios.get(INVENTORY_URL, {
+
+    const inventory = await axios.get(`${INVENTORY_URL}?quantity=${quantity || 1}`, {
       headers: { 'X-Request-Id': requestId },
       timeout: 2000
     });
+
+    if (!inventory.data.available) {
+      console.log(`[Checkout] Out of stock for Request ID: ${requestId}`);
+      try {
+        await pool.query(
+          'INSERT INTO orders (product, price, stock, request_id, status) VALUES ($1, $2, $3, $4, $5)',
+          [pricing.data.product, pricing.data.price, 0, requestId, 'out_of_stock']
+        );
+      } catch (dbErr) {
+        console.error(`[Checkout] DB error: ${dbErr.message}`);
+      }
+      return res.status(400).json({
+        error: 'Out of stock',
+        product: pricing.data.product,
+        price: pricing.data.price,
+        available: false
+      });
+    }
 
     const result = {
       product: pricing.data.product,
@@ -58,12 +80,12 @@ app.post('/checkout', async (req, res) => {
 
     try {
       await pool.query(
-        'INSERT INTO orders (product, price, stock, request_id) VALUES ($1, $2, $3, $4)',
-        [result.product, result.price, result.stock, requestId]
+        'INSERT INTO orders (product, price, stock, request_id, status) VALUES ($1, $2, $3, $4, $5)',
+        [result.product, result.price, result.stock, requestId, 'success']
       );
-      console.log(`[Checkout] Order saved to DB for Request ID: ${requestId}`);
+      console.log(`[Checkout] Order saved for Request ID: ${requestId}`);
     } catch (dbErr) {
-      console.error(`[Checkout] DB save error: ${dbErr.message}`);
+      console.error(`[Checkout] DB error: ${dbErr.message}`);
     }
 
     res.json(result);
