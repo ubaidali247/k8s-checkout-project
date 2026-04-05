@@ -189,11 +189,21 @@ app.post('/api/checkout', async (req, res) => {
     });
     res.json(response.data);
   } catch (err) {
-    console.error(`[Gateway] Error: ${err.message}`);
+    console.error(`[Gateway] Error for Request ID: ${requestId}: ${err.message}`);
     if (err.response) {
       return res.status(err.response.status).json(err.response.data);
     }
-    res.status(500).json({ error: 'Gateway failed to process checkout', details: err.message });
+    const isTimeout = err.code === 'ECONNABORTED';
+    const isRefused = err.code === 'ECONNREFUSED';
+    const status = (isTimeout || isRefused) ? 503 : 500;
+    res.status(status).json({
+      error: isTimeout
+        ? 'Checkout service did not respond in time'
+        : isRefused
+          ? 'Checkout service is unavailable'
+          : 'Gateway error',
+      requestId
+    });
   }
 });
 

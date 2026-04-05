@@ -41,6 +41,16 @@ app.get('/health', (req, res) => res.send('OK'));
 app.post('/checkout', async (req, res) => {
   const requestId = req.headers['x-request-id'] || 'N/A';
   const { quantity } = req.body;
+
+  if (!quantity || typeof quantity !== 'number' || quantity <= 0) {
+    console.log(`[Checkout] Invalid input for Request ID: ${requestId}, quantity: ${quantity}`);
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: 'quantity must be a positive number',
+      requestId
+    });
+  }
+
   console.log(`[Checkout] Request ID: ${requestId}, Quantity: ${quantity}`);
 
   try {
@@ -49,7 +59,7 @@ app.post('/checkout', async (req, res) => {
       timeout: 2000
     });
 
-    const inventory = await axios.get(`${INVENTORY_URL}?quantity=${quantity || 1}`, {
+    const inventory = await axios.get(`${INVENTORY_URL}?quantity=${quantity}`, {
       headers: { 'X-Request-Id': requestId },
       timeout: 2000
     });
@@ -89,9 +99,20 @@ app.post('/checkout', async (req, res) => {
     }
 
     res.json(result);
+
   } catch (err) {
-    console.error(`[Checkout] Error: ${err.message}`);
-    res.status(500).json({ error: 'Checkout failed', details: err.message });
+    console.error(`[Checkout] Error for Request ID: ${requestId}: ${err.message}`);
+    const isTimeout = err.code === 'ECONNABORTED';
+    const isRefused = err.code === 'ECONNREFUSED';
+    const status = (isTimeout || isRefused) ? 503 : 500;
+    res.status(status).json({
+      error: isTimeout
+        ? 'Dependency timeout — upstream service did not respond in time'
+        : isRefused
+          ? 'Dependency unavailable — upstream service is down'
+          : 'Checkout failed',
+      requestId
+    });
   }
 });
 
