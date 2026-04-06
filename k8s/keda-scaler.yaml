@@ -7,7 +7,7 @@ spec:
     name: inventory
   minReplicaCount: 0
   maxReplicaCount: 5
-  cooldownPeriod: 60
+  cooldownPeriod: 30
   triggers:
   - type: cron
     metadata:
@@ -15,7 +15,3 @@ spec:
       start: "0 8 * * *"
       end: "0 22 * * *"
       desiredReplicas: "1"
-  - type: kubernetes-workload
-    metadata:
-      podSelector: "app=checkout"
-      value: "1"
