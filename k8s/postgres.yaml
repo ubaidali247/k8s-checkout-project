@@ -33,6 +33,10 @@ spec:
       labels:
         app: postgres
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
       containers:
       - name: postgres
         image: postgres:15-alpine
@@ -54,6 +58,18 @@ spec:
             secretKeyRef:
               name: postgres-secret
               key: POSTGRES_DB
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
