@@ -5,6 +5,47 @@ app.use(express.json());
 
 const CHECKOUT_URL = process.env.CHECKOUT_URL || 'http://localhost:3002/checkout';
 
+// Structured JSON logger
+function log(level, service, message, extra = {}) {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level,
+    service,
+    message,
+    ...extra
+  }));
+}
+
+// Prometheus metrics
+let httpRequestsTotal = {};
+let httpRequestDuration = {};
+
+function recordRequest(method, path, status, durationMs) {
+  const key = `${method}_${path}_${status}`;
+  httpRequestsTotal[key] = (httpRequestsTotal[key] || 0) + 1;
+  if (!httpRequestDuration[key]) httpRequestDuration[key] = [];
+  httpRequestDuration[key].push(durationMs);
+}
+
+app.get('/metrics', (req, res) => {
+  let output = '';
+  output += '# HELP http_requests_total Total HTTP requests\n';
+  output += '# TYPE http_requests_total counter\n';
+  for (const [key, count] of Object.entries(httpRequestsTotal)) {
+    const [method, path, status] = key.split('_');
+    output += `http_requests_total{service="gateway",method="${method}",path="${path}",status="${status}"} ${count}\n`;
+  }
+  output += '# HELP http_request_duration_ms HTTP request duration\n';
+  output += '# TYPE http_request_duration_ms gauge\n';
+  for (const [key, durations] of Object.entries(httpRequestDuration)) {
+    const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
+    const [method, path, status] = key.split('_');
+    output += `http_request_duration_ms{service="gateway",method="${method}",path="${path}",status="${status}"} ${avg.toFixed(2)}\n`;
+  }
+  res.set('Content-Type', 'text/plain');
+  res.send(output);
+});
+
 app.get('/health', (req, res) => res.send('OK'));
 app.get('/api/ping', (req, res) => res.send('Pong'));
 app.get('/api/arch', (req, res) => res.send('Microservices: Gateway -> Checkout -> (Pricing + Inventory + Postgres)'));
@@ -169,42 +210,4 @@ app.get('/api/health/checkout', async (req, res) => {
   catch { res.status(503).send('UNAVAILABLE'); }
 });
 
-app.get('/api/health/pricing', async (req, res) => {
-  try { await axios.get('http://pricing-svc:3000/health', { timeout: 2000 }); res.send('OK'); }
-  catch { res.status(503).send('UNAVAILABLE'); }
-});
-
-app.get('/api/health/inventory', async (req, res) => {
-  try { await axios.get('http://inventory-svc:3001/health', { timeout: 2000 }); res.send('OK'); }
-  catch { res.status(503).send('UNAVAILABLE'); }
-});
-
-app.post('/api/checkout', async (req, res) => {
-  const requestId = req.headers['x-request-id'] || 'N/A';
-  console.log(`[Gateway] Request ID: ${requestId}`);
-  try {
-    const response = await axios.post(CHECKOUT_URL, req.body, {
-      headers: { 'X-Request-Id': requestId },
-      timeout: 3000
-    });
-    res.json(response.data);
-  } catch (err) {
-    console.error(`[Gateway] Error for Request ID: ${requestId}: ${err.message}`);
-    if (err.response) {
-      return res.status(err.response.status).json(err.response.data);
-    }
-    const isTimeout = err.code === 'ECONNABORTED';
-    const isRefused = err.code === 'ECONNREFUSED';
-    const status = (isTimeout || isRefused) ? 503 : 500;
-    res.status(status).json({
-      error: isTimeout
-        ? 'Checkout service did not respond in time'
-        : isRefused
-          ? 'Checkout service is unavailable'
-          : 'Gateway error',
-      requestId
-    });
-  }
-});
-
-app.listen(3003, () => console.log('Gateway service running on port 3003'));
+app.ge
