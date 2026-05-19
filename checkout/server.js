@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const axios = require('axios');
 const { Pool } = require('pg');
 const app = express();
@@ -54,6 +54,7 @@ const pool = new Pool({
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
   port: 5432,
+  ssl: false,
 });
 
 async function initDb() {
@@ -139,4 +140,13 @@ app.post('/checkout', async (req, res) => {
     const isTimeout = err.code === 'ECONNABORTED';
     const isRefused = err.code === 'ECONNREFUSED';
     const status = (isTimeout || isRefused) ? 503 : 500;
-    log('error', 'checkout', 'Checkout failed', { requestId, durationMs: duration, error: err.m
+    log('error', 'checkout', 'Checkout failed', { requestId, durationMs: duration, error: err.message, code: err.code });
+    recordRequest('POST', 'checkout', String(status), duration);
+    res.status(status).json({
+      error: isTimeout ? 'Dependency timeout' : isRefused ? 'Dependency unavailable' : 'Checkout failed',
+      requestId
+    });
+  }
+});
+
+app.listen(3002, () => log('info', 'checkout', 'Checkout service running on port 3002'));

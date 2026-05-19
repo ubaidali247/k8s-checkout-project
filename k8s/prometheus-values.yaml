@@ -1,0 +1,25 @@
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    additionalScrapeConfigs:
+    - job_name: 'gateway'
+      static_configs:
+      - targets: ['gateway-svc.default.svc.cluster.local:3003']
+    - job_name: 'checkout'
+      static_configs:
+      - targets: ['checkout-svc.default.svc.cluster.local:3002']
+    - job_name: 'inventory'
+      static_configs:
+      - targets: ['inventory-svc.default.svc.cluster.local:3001']
+    - job_name: 'pricing'
+      static_configs:
+      - targets: ['pricing-svc.default.svc.cluster.local:3000']
+
+grafana:
+  enabled: true
+  adminPassword: "admin123"
+  service:
+    type: NodePort
+
+alertmanager:
+  enabled: false

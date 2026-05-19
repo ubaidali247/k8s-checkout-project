@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const axios = require('axios');
 const app = express();
 app.use(express.json());
@@ -97,7 +97,7 @@ app.get('/', (req, res) => {
 </head>
 <body>
   <header>
-    <h1>🛒 E-Commerce Checkout System</h1>
+    <h1>ðŸ›’ E-Commerce Checkout System</h1>
     <span>Kubernetes / K3s</span>
     <span>Microservices</span>
   </header>
@@ -126,10 +126,10 @@ app.get('/', (req, res) => {
     <div class="card arch">
       <h2>System Architecture</h2>
       <div class="arch-diagram">
-        <div class="node">Browser</div><div class="arrow">→</div>
-        <div class="node">Ingress<br><small>Traefik</small></div><div class="arrow">→</div>
-        <div class="node">Gateway<br><small>:3003</small></div><div class="arrow">→</div>
-        <div class="node">Checkout<br><small>:3002</small></div><div class="arrow">→</div>
+        <div class="node">Browser</div><div class="arrow">â†’</div>
+        <div class="node">Ingress<br><small>Traefik</small></div><div class="arrow">â†’</div>
+        <div class="node">Gateway<br><small>:3003</small></div><div class="arrow">â†’</div>
+        <div class="node">Checkout<br><small>:3002</small></div><div class="arrow">â†’</div>
         <div class="deps">
           <div class="node dep">Pricing :3000</div>
           <div class="node dep">Inventory :3001</div>
@@ -159,7 +159,7 @@ app.get('/', (req, res) => {
       const log = document.getElementById('log');
       const time = new Date().toLocaleTimeString();
       const cls = status === 'OK' ? 'ok' : 'err';
-      log.innerHTML = '<div class="entry"><span class="time">' + time + '</span> <span class="' + cls + '">[' + status + ']</span> ' + requestId + ' — ' + message + '</div>' + log.innerHTML;
+      log.innerHTML = '<div class="entry"><span class="time">' + time + '</span> <span class="' + cls + '">[' + status + ']</span> ' + requestId + ' â€” ' + message + '</div>' + log.innerHTML;
     }
     async function placeOrder() {
       const productId = document.getElementById('productId').value;
@@ -210,4 +210,44 @@ app.get('/api/health/checkout', async (req, res) => {
   catch { res.status(503).send('UNAVAILABLE'); }
 });
 
-app.ge
+app.get('/api/health/pricing', async (req, res) => {
+  try { await axios.get('http://pricing-svc:3000/health', { timeout: 2000 }); res.send('OK'); }
+  catch { res.status(503).send('UNAVAILABLE'); }
+});
+
+app.get('/api/health/inventory', async (req, res) => {
+  try { await axios.get('http://inventory-svc:3001/health', { timeout: 2000 }); res.send('OK'); }
+  catch { res.status(503).send('UNAVAILABLE'); }
+});
+
+app.post('/api/checkout', async (req, res) => {
+  const requestId = req.headers['x-request-id'] || 'N/A';
+  const start = Date.now();
+  log('info', 'gateway', 'checkout request received', { requestId, body: req.body });
+  try {
+    const response = await axios.post(CHECKOUT_URL, req.body, {
+      headers: { 'X-Request-Id': requestId },
+      timeout: 3000
+    });
+    const duration = Date.now() - start;
+    log('info', 'gateway', 'checkout request succeeded', { requestId, status: 200, durationMs: duration });
+    recordRequest('POST', 'checkout', '200', duration);
+    res.json(response.data);
+  } catch (err) {
+    const duration = Date.now() - start;
+    const isTimeout = err.code === 'ECONNABORTED';
+    const isRefused = err.code === 'ECONNREFUSED';
+    const status = (isTimeout || isRefused) ? 503 : 500;
+    log('error', 'gateway', 'checkout request failed', { requestId, status, durationMs: duration, error: err.message });
+    recordRequest('POST', 'checkout', String(status), duration);
+    if (err.response) return res.status(err.response.status).json(err.response.data);
+    res.status(status).json({
+      error: isTimeout ? 'Checkout service did not respond in time'
+        : isRefused ? 'Checkout service is unavailable'
+        : 'Gateway error',
+      requestId
+    });
+  }
+});
+
+app.listen(3003, () => log('info', 'gateway', 'Gateway service running on port 3003'));
