@@ -55,6 +55,9 @@ spec:
     - podSelector:
         matchLabels:
           app: checkout
+    - podSelector:
+        matchLabels:
+          app: gateway
 ---
 # Inventory can only receive traffic from checkout
 apiVersion: networking.k8s.io/v1
@@ -72,6 +75,9 @@ spec:
     - podSelector:
         matchLabels:
           app: checkout
+    - podSelector:
+        matchLabels:
+          app: gateway
 ---
 # Postgres can only receive traffic from checkout
 apiVersion: networking.k8s.io/v1
